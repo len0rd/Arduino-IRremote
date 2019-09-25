@@ -55,6 +55,9 @@ int  IRrecv::getRClevel (decode_results *results,  int *offset,  int *used,  int
 
 //+=============================================================================
 #if SEND_RC5
+const uint16_t kRC5RawBits = 14;
+const uint16_t kRC5Bits = kRC5RawBits - 2;
+
 void  IRsend::sendRC5 (unsigned long data,  int nbits)
 {
 	// Set IR carrier frequency
