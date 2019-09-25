@@ -78,6 +78,12 @@ void  IRsend::sendRC5 (unsigned long data,  int nbits)
 
 	space(0);  // Always end with the LED off
 }
+
+uint16_t IRsend::encodeRC5(uint8_t address, uint8_t command,
+                           bool key_released) {
+  return (key_released << (kRC5Bits - 1)) | ((address & 0x1f) << 6) |
+         (command & 0x3F);
+}
 #endif
 
 //+=============================================================================
@@ -110,6 +116,65 @@ bool  IRrecv::decodeRC5 (decode_results *results)
 	results->value       = data;
 	results->decode_type = RC5;
 	return true;
+}
+#endif
+
+
+//==============================================================================
+// RRRR    CCCC  55555  X    X
+// R   R  C      5       X  X
+// RRRR   C      5555     X
+// R  R   C          5   X X
+// R   R   CCCC  5555   X   X
+//
+#if SEND_RC5X
+// send RC5x command defined by system, command and extension
+void IRsend::sendRC5x(unsigned char toggle, unsigned char system, unsigned char command, unsigned char extension){
+	
+	// First, assemble complete signal from components
+	unsigned long data;
+
+	// the initializing bits are included in the data
+	// if command is greater than 63, the second bit will be zero
+	if (command & 64){
+		data = 2;
+	}else{
+		data = 3;
+	}
+		
+	// copy lsb of toggle into data
+	data = (data<<1) | (toggle & 1);
+	// copy lower 5 bits of system into data
+	data = (data<<5) | (system & 0x1F);
+	// shift by command length (6 bits) and add command
+	data = (data<<6) | (command & 0x3F);
+	// shift by extension length and add extension
+	data = (data<<6) | (extension & 0x3F);
+	
+	// Set IR carrier frequency
+	enableIROut(36);
+	
+	// the full command is 20 bits long
+	unsigned long  mask = 1UL << 19;
+
+	for (int i = 0; i < 20; i++) {
+		if (data & mask) {
+			space(RC5_T1); // 1 is space, then mark
+			mark(RC5_T1);
+		}
+		else {
+			mark(RC5_T1);
+			space(RC5_T1);
+		}
+		// we use the RC5x protocol, which includes 2
+		// low cycles (4 spaces) after the device id
+		if (i==7){
+			space(4*RC5_T1);
+		}
+		// move mask
+		mask >>= 1;
+	}
+	space(0); // Turn off at end
 }
 #endif
 
